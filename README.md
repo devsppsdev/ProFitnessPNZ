@@ -95,3 +95,4 @@ fitness-app/
 │       └── crm.ts             # Типы данных CRM
 ├── docker-compose.yml         # Для локальной разработки
 └── README.md
+npm install react-native-async-storage/async-storage

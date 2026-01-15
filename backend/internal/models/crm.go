@@ -1,4 +1,3 @@
-// backend/internal/models/crm.go
 package models
 
 // Структуры для ответов ImpulseCRM
