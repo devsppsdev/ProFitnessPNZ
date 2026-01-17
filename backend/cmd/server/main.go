@@ -30,6 +30,9 @@ func main() {
 	}
 	fmt.Println("✅ CRM клиент инициализирован")
 
+	crmClient := crm.GetClient()
+    crmClient.SetSession("r295oohgcm25381rqelvt0t0lb") // из curl
+
 	// 3. Инициализируем роутер
 	r := gin.Default()
 

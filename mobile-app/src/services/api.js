@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 🔴 ЗАМЕНИ ЭТОТ IP НА ТВОЙ ТЕКУЩИЙ IP
-const API_URL = 'http://192.168.1.105:8080'; // ← ЗАМЕНИ НА СВОЙ IP
+const API_URL = 'http://192.168.0.102:8080'; // ← ЗАМЕНИ НА СВОЙ IP
 
 const api = axios.create({
     baseURL: API_URL,
@@ -37,12 +37,17 @@ export const getBranches = () => {
 };
 
 // 2. Расписание
-export const getSchedule = (date_from, branch_id) => {
+export const getSchedule = (date_from, date_to, branch_id) => {
     const payload = {
         date_from,
         limit: 100,
         page: 1
     };
+
+    // Добавляем date_to если передан
+    if (date_to) {
+        payload.date_to = date_to;
+    }
     if (branch_id) payload.branch_id = branch_id; // добавляем только если есть
     return api.post('/api/public/schedule/list', payload);
 };

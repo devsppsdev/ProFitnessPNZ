@@ -15,6 +15,7 @@ import (
 type Client struct {
 	BaseURL    string
 	APIKey     string
+	PHPSESSID  string // ← ДОБАВЛЯЕМ сессию
 	httpClient *http.Client
 }
 
@@ -39,6 +40,14 @@ func NewClient(apiKey, baseURL string) (*Client, error) {
 			Timeout: 15 * time.Second,
 		},
 	}, nil
+}
+
+// SetSession устанавливает PHPSESSID для schedule запросов
+func (c *Client) SetSession(sessionID string) {
+	clientMutex.Lock()
+	defer clientMutex.Unlock()
+	c.PHPSESSID = sessionID
+	fmt.Printf("[CRM Client] Установлена сессия: %s\n", sessionID)
 }
 
 // InitGlobalClient initializes the global CRM client
@@ -68,6 +77,13 @@ func (c *Client) Post(endpoint string, requestBody map[string]interface{}) ([]by
 		endpoint = endpoint[1:]
 	}
 	url := baseURL + endpoint
+	
+	// Если это schedule и есть сессия - добавляем PHPSESSID
+	if strings.Contains(endpoint, "schedule") && c.PHPSESSID != "" {
+		url += "?PHPSESSID=" + c.PHPSESSID
+		fmt.Printf("[CRM Client] Используем сессию для schedule\n")
+	}
+
 	fmt.Printf("[CRM Client] Base URL: %s\n", c.BaseURL)
 	fmt.Printf("[CRM Client] Endpoint: %s\n", endpoint)
 	fmt.Printf("[CRM Client] Full URL: %s\n", url)
@@ -82,10 +98,26 @@ func (c *Client) Post(endpoint string, requestBody map[string]interface{}) ([]by
 		return nil, fmt.Errorf("ошибка создания запроса: %v", err)
 	}
 
-	// Set authentication header
-	req.SetBasicAuth("", c.APIKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
+	// Для schedule используем заголовки из curl, для остального - API ключ
+	if strings.Contains(endpoint, "schedule") && c.PHPSESSID != "" {
+		// Schedule запросы с сессией
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json, text/plain, */*")
+		req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+		req.Header.Set("Referer", "https://profitnes31gmailcom.impulsecrm.ru/schedule")
+		req.Header.Set("Origin", "https://profitnes31gmailcom.impulsecrm.ru")
+		
+		// Добавляем куки из curl
+		req.AddCookie(&http.Cookie{Name: "__ddg1_", Value: "FShvcfz1cefpptcSeJdc"})
+		req.AddCookie(&http.Cookie{Name: "tmr_lvid", Value: "a57f165f9924a6ae5471720dbb3be8cf"})
+		req.AddCookie(&http.Cookie{Name: "_ga", Value: "GA1.2.56413904.1768222878"})
+		req.AddCookie(&http.Cookie{Name: "_gid", Value: "GA1.2.1673474388.1768669185"})
+	} else {
+		// Обычные запросы с API ключом
+		req.SetBasicAuth("", c.APIKey)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Accept", "application/json")
+	}
 
 	fmt.Printf("[CRM Client] Отправка запроса...\n")
 	resp, err := c.httpClient.Do(req)
@@ -130,6 +162,73 @@ func (c *Client) Post(endpoint string, requestBody map[string]interface{}) ([]by
 	return body, nil
 }
 
+// PostSchedule - специальный метод для schedule с правильными заголовками
+func (c *Client) PostSchedule(endpoint string, requestBody map[string]interface{}) ([]byte, error) {
+	if c.PHPSESSID == "" {
+		return nil, fmt.Errorf("PHPSESSID не установлен для schedule запросов")
+	}
+
+	baseURL := c.BaseURL
+	if !strings.HasSuffix(baseURL, "/") {
+		baseURL += "/"
+	}
+	if strings.HasPrefix(endpoint, "/") {
+		endpoint = endpoint[1:]
+	}
+	
+	url := baseURL + endpoint + "?PHPSESSID=" + c.PHPSESSID
+	fmt.Printf("[CRM Schedule Client] URL: %s\n", url)
+
+	bodyBytes, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка формирования запроса: %v", err)
+	}
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyBytes))
+	if err != nil {
+		return nil, fmt.Errorf("ошибка создания запроса: %v", err)
+	}
+
+	// Точные заголовки из curl
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/plain, */*")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0")
+	req.Header.Set("Referer", "https://profitnes31gmailcom.impulsecrm.ru/schedule")
+	req.Header.Set("Origin", "https://profitnes31gmailcom.impulsecrm.ru")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
+	
+	// Куки
+	req.AddCookie(&http.Cookie{Name: "__ddg1_", Value: "FShvcfz1cefpptcSeJdc"})
+	req.AddCookie(&http.Cookie{Name: "tmr_lvid", Value: "a57f165f9924a6ae5471720dbb3be8cf"})
+	req.AddCookie(&http.Cookie{Name: "_ga", Value: "GA1.2.56413904.1768222878"})
+	req.AddCookie(&http.Cookie{Name: "_gid", Value: "GA1.2.1673474388.1768669185"})
+	req.AddCookie(&http.Cookie{Name: "_ym_uid", Value: "1768222879598196267"})
+	req.AddCookie(&http.Cookie{Name: "_ym_d", Value: "1768222879"})
+	req.AddCookie(&http.Cookie{Name: "_ym_isad", Value: "2"})
+	req.AddCookie(&http.Cookie{Name: "tmr_lvidTS", Value: "1768222877470"})
+
+	fmt.Printf("[CRM Schedule Client] Отправка schedule запроса...\n")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка подключения: %v", err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Printf("[CRM Schedule Client] Статус: %d\n", resp.StatusCode)
+	
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("ошибка чтения ответа: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("Schedule API ошибка %d: %s", resp.StatusCode, string(body))
+	}
+
+	return body, nil
+}
+
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -138,10 +237,7 @@ func min(a, b int) int {
 }
 
 // Get makes a GET request to the CRM API
-// NOTE: Most CRM API endpoints (like /list endpoints) only support POST, not GET.
-// Use Post() method for list endpoints.
 func (c *Client) Get(endpoint string) ([]byte, error) {
-	// Ensure base URL ends with / and endpoint doesn't start with /
 	baseURL := c.BaseURL
 	if !strings.HasSuffix(baseURL, "/") {
 		baseURL += "/"
@@ -158,7 +254,6 @@ func (c *Client) Get(endpoint string) ([]byte, error) {
 		return nil, fmt.Errorf("ошибка создания запроса: %v", err)
 	}
 
-	// Set authentication header
 	req.SetBasicAuth("", c.APIKey)
 	req.Header.Set("Accept", "application/json")
 

@@ -20,12 +20,11 @@ func RegisterRoutes(router *gin.Engine) {
 	router.POST("/api/public/branch/list", GetBranchesPublic)
 	router.POST("/api/public/schedule/list", GetSchedulePublic)
 	router.POST("/api/public/teacher/list", GetTeachersPublic)
-	router.POST("/api/public/hall/list", GetHallsPublic)
+	
 
 	// Старые GET эндпоинты (можно оставить для совместимости)
 	router.GET("/api/v1/schedule", GetSchedule)
 	router.GET("/api/v1/teacher", GetTeachers)
-	router.GET("/api/v1/hall", GetHalls)
 	router.GET("/api/v1/branch", GetBranches)
 
 	// Защищенные маршруты
