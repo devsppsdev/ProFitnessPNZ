@@ -3,14 +3,13 @@ import React, { useState, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView,
     TouchableOpacity, ActivityIndicator, RefreshControl,
-    StatusBar, Modal, FlatList, Dimensions
+    StatusBar, Modal, FlatList, SafeAreaView,
+    Image
 } from 'react-native';
 import { getBranches, getSchedule } from '../services/api';
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import Icon from '../assets/icons/icon';
 
-const { width } = Dimensions.get('window');
-
-export default function ScheduleScreen() {
+export default function ScheduleScreen({ navigation }) {
     const [schedule, setSchedule] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -19,6 +18,9 @@ export default function ScheduleScreen() {
     const [showBranchModal, setShowBranchModal] = useState(false);
     const [selectedDate, setSelectedDate] = useState('');
     const [weekDates, setWeekDates] = useState([]);
+
+    // Логотип для кнопки "Про Фитнес"
+    const proFitnessLogo = require('../assets/logo.png');
 
     // Генерация недели
     const generateWeekDates = () => {
@@ -72,22 +74,13 @@ export default function ScheduleScreen() {
         }
     };
 
-    // Загрузка расписания для выбранной даты
+    // Загрузка расписания
     const loadScheduleData = async (date) => {
         if (!selectedBranch || !date) return;
 
         try {
             setRefreshing(true);
-            console.log(`Загружаем расписание: филиал=${selectedBranch.id}, дата=${date}`);
-
-            // Используем ту же дату для date_from и date_to (один день)
             const response = await getSchedule(date, date, selectedBranch.id);
-
-            console.log('Ответ API:', {
-                success: response.data?.success,
-                total: response.data?.meta?.total,
-                itemsCount: response.data?.items?.length || 0
-            });
 
             let scheduleData = [];
 
@@ -96,8 +89,6 @@ export default function ScheduleScreen() {
             } else if (response.data?.data) {
                 scheduleData = response.data.data;
             }
-
-            console.log(`Найдено ${scheduleData.length} занятий на ${date}`);
 
             // Сортируем по времени
             const sorted = scheduleData.sort((a, b) => {
@@ -140,8 +131,6 @@ export default function ScheduleScreen() {
         setSelectedDate(dateItem.date);
     };
 
-
-
     // Форматирование времени
     const formatTime = (timeStr) => {
         if (!timeStr) return '--:--';
@@ -151,218 +140,219 @@ export default function ScheduleScreen() {
     // Рендер загрузки
     if (loading && schedule.length === 0) {
         return (
-            <View style={styles.safeArea}>
+            <SafeAreaView style={styles.safeArea}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#FF6B00" />
+                    <ActivityIndicator size="large" color="#DB6A50" />
                     <Text style={styles.loadingText}>Загружаем расписание...</Text>
                 </View>
-            </View>
+            </SafeAreaView>
         );
     }
 
     return (
-        <View style={styles.safeArea}>
-            <StatusBar barStyle="light-content" backgroundColor="#0A0A0A" />
+        <SafeAreaView style={styles.safeArea}>
+            <StatusBar barStyle="light-content" backgroundColor="#000" />
 
-            {/* Шапка */}
-            <View style={styles.header}>
-                <View style={styles.headerRow}>
-                    <View>
-                        <Text style={styles.title}>Расписание</Text>
+            <View style={styles.container}>
+                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                    {/* Шапка */}
+                    <View style={styles.header}>
+                        <View style={styles.headerRow}>
+                            <Text style={styles.title}>Расписание</Text>
 
-                    </View>
-
-                    <TouchableOpacity
-                        style={styles.branchSelector}
-                        onPress={() => setShowBranchModal(true)}
-                    >
-                        <Icon name="map-marker" size={18} color="#FF6B00" />
-                        <Text style={styles.branchName} numberOfLines={1}>
-                            {selectedBranch?.name || 'Филиал'}
-                        </Text>
-                        <Icon name="chevron-down" size={16} color="#FF6B00" />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Календарь недели */}
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    style={styles.weekContainer}
-                    contentContainerStyle={styles.weekContent}
-                >
-                    {weekDates.map((dateItem, index) => (
-                        <TouchableOpacity
-                            key={index}
-                            style={[
-                                styles.dateItem,
-                                dateItem.isSelected && styles.dateItemSelected,
-                                dateItem.isToday && styles.dateItemToday
-                            ]}
-                            onPress={() => handleDateSelect(dateItem)}
-                        >
-                            <Text style={[
-                                styles.dateWeekday,
-                                dateItem.isSelected && styles.dateWeekdaySelected
-                            ]}>
-                                {dateItem.weekday}
-                            </Text>
-                            <Text style={[
-                                styles.dateDay,
-                                dateItem.isSelected && styles.dateDaySelected
-                            ]}>
-                                {dateItem.day}
-                            </Text>
-                            <Text style={[
-                                styles.dateMonth,
-                                dateItem.isSelected && styles.dateMonthSelected
-                            ]}>
-                                {dateItem.month}
-                            </Text>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
-
-                {/* Статистика */}
-                {schedule.length > 0 && (
-                    <View style={styles.stats}>
-                        <View style={styles.stat}>
-                            <View style={styles.statIconContainer}>
-                                <Icon name="calendar-check" size={18} color="#FF6B00" />
-                            </View>
-                            <Text style={styles.statValue}>{schedule.length}</Text>
-                            <Text style={styles.statLabel}>занятий</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.stat}>
-                            <View style={styles.statIconContainer}>
-                                <Icon name="account-group" size={18} color="#4CAF50" />
-                            </View>
-                            <Text style={styles.statValue}>
-                                {schedule.reduce((sum, item) => sum + (item.free_places || 0), 0)}
-                            </Text>
-                            <Text style={styles.statLabel}>свободно</Text>
-                        </View>
-                    </View>
-                )}
-            </View>
-
-            {/* Список занятий */}
-            <ScrollView
-                style={styles.scheduleContainer}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={refreshing}
-                        onRefresh={() => loadScheduleData(selectedDate)}
-                        colors={["#FF6B00"]}
-                        tintColor="#FF6B00"
-                    />
-                }
-                contentContainerStyle={schedule.length === 0 ? styles.emptyContainer : styles.scheduleContent}
-            >
-                {schedule.length === 0 ? (
-                    <View style={styles.empty}>
-                        <Icon name="calendar-blank" size={80} color="#444" />
-                        <Text style={styles.emptyTitle}>Нет занятий</Text>
-                        <Text style={styles.emptyText}>
-                            На выбранный день нет запланированных занятий
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.tryButton}
-                            onPress={() => {
-                                const today = new Date().toISOString().split('T')[0];
-                                handleDateSelect(weekDates.find(d => d.date === today) || weekDates[0]);
-                            }}
-                        >
-                            <Text style={styles.tryButtonText}>Показать сегодня</Text>
-                        </TouchableOpacity>
-                    </View>
-                ) : (
-                    schedule.map((item, index) => (
-                        <View key={`${item.id}-${index}`} style={styles.card}>
-                            {/* Время */}
-                            <View style={styles.timeSection}>
-                                <View style={styles.timeContainer}>
-                                    <Icon name="clock-outline" size={20} color="#FF6B00" />
-                                    <Text style={styles.time}>
-                                        {formatTime(item.time)}
-                                    </Text>
-                                </View>
-                                <View style={styles.durationBadge}>
-                                    <Text style={styles.duration}>{item.duration || 60} мин</Text>
-                                </View>
-                            </View>
-
-                            {/* Информация о занятии */}
-                            <View style={styles.cardBody}>
-                                <Text style={styles.workoutName} numberOfLines={2}>
-                                    {item.name || 'Групповое занятие'}
-                                </Text>
-
-                                <View style={styles.infoRow}>
-                                    <Icon name="account" size={16} color="#FF6B00" />
-                                    <Text style={styles.coach} numberOfLines={1}>
-                                        {item.coach_name || item.coach || 'Тренер'}
-                                    </Text>
-                                </View>
-
-                                <View style={styles.infoRow}>
-                                    <Icon name="map-marker" size={14} color="#888" />
-                                    <Text style={styles.room} numberOfLines={1}>
-                                        {item.room_name || item.room || 'Основной зал'}
-                                    </Text>
-                                </View>
-
-                                {/* Места */}
-                                <View style={styles.placesContainer}>
-                                    <View style={styles.placesInfo}>
-                                        <Icon name="account-group" size={16} color="#888" />
-                                        <Text style={styles.placesText}>
-                                            <Text style={styles.placesFree}>{item.free_places || 0}</Text>
-                                            <Text style={styles.placesSeparator}> из </Text>
-                                            <Text style={styles.placesTotal}>{item.max_places || 10}</Text>
-                                            <Text style={styles.placesLabel}> мест свободно</Text>
-                                        </Text>
-                                    </View>
-
-                                    {/* Индикатор заполненности */}
-                                    <View style={styles.placesIndicator}>
-                                        <View
-                                            style={[
-                                                styles.placesFill,
-                                                {
-                                                    width: `${Math.min(100, 100 - ((item.free_places || 0) / (item.max_places || 10) * 100))}%`
-                                                }
-                                            ]}
-                                        />
-                                    </View>
-                                </View>
-                            </View>
-
-                            {/* Кнопка записи */}
                             <TouchableOpacity
-                                style={[
-                                    styles.bookButton,
-                                    (item.free_places === 0) && styles.bookButtonDisabled
-                                ]}
-                                disabled={item.free_places === 0}
+                                style={styles.branchSelector}
+                                onPress={() => setShowBranchModal(true)}
                             >
-                                <Icon
-                                    name={item.free_places === 0 ? "lock" : "calendar-plus"}
-                                    size={18}
-                                    color={item.free_places === 0 ? "#999" : "#FFF"}
-                                />
-                                <Text style={[
-                                    styles.bookButtonText,
-                                    (item.free_places === 0) && styles.bookButtonTextDisabled
-                                ]}>
-                                    {item.free_places === 0 ? 'МЕСТ НЕТ' : 'ЗАПИСАТЬСЯ'}
+                                <Icon name="height" size={16} color="#FFF" />
+                                <Text style={styles.branchName} numberOfLines={1}>
+                                    {selectedBranch?.name || 'Филиал'}
                                 </Text>
+
                             </TouchableOpacity>
                         </View>
-                    ))
-                )}
-            </ScrollView>
+
+                        {/* Календарь недели */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.weekContainer}
+                            contentContainerStyle={styles.weekContent}
+                        >
+                            {weekDates.map((dateItem, index) => (
+                                <TouchableOpacity
+                                    key={index}
+                                    style={[
+                                        styles.dateItem,
+                                        dateItem.isSelected && styles.dateItemSelected,
+                                        dateItem.isToday && styles.dateItemToday
+                                    ]}
+                                    onPress={() => handleDateSelect(dateItem)}
+                                >
+                                    <Text style={[
+                                        styles.dateWeekday,
+                                        dateItem.isSelected && styles.dateWeekdaySelected
+                                    ]}>
+                                        {dateItem.weekday}
+                                    </Text>
+                                    <Text style={[
+                                        styles.dateDay,
+                                        dateItem.isSelected && styles.dateDaySelected
+                                    ]}>
+                                        {dateItem.day}
+                                    </Text>
+                                    <Text style={[
+                                        styles.dateMonth,
+                                        dateItem.isSelected && styles.dateMonthSelected
+                                    ]}>
+                                        {dateItem.month}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+                    </View>
+
+                    {/* Список занятий */}
+                    <ScrollView
+                        style={styles.scheduleContainer}
+                        refreshControl={
+                            <RefreshControl
+                                refreshing={refreshing}
+                                onRefresh={() => loadScheduleData(selectedDate)}
+                                colors={["#DB6A50"]}
+                                tintColor="#DB6A50"
+                            />
+                        }
+                        contentContainerStyle={schedule.length === 0 ? styles.emptyContainer : styles.scheduleContent}
+                    >
+                        {schedule.length === 0 ? (
+                            <View style={styles.empty}>
+                                <Icon name="ticket" size={70} color="#444" />
+                                <Text style={styles.emptyTitle}>Нет занятий</Text>
+                                <Text style={styles.emptyText}>
+                                    На выбранный день нет запланированных занятий
+                                </Text>
+                            </View>
+                        ) : (
+                            schedule.map((item, index) => (
+                                <View key={`${item.id}-${index}`} style={styles.card}>
+                                    {/* Время */}
+                                    <View style={styles.timeSection}>
+                                        <View style={styles.timeContainer}>
+                                            <Icon name="fire" size={20} color="#DB6A50" />
+                                            <Text style={styles.time}>
+                                                {formatTime(item.time)}
+                                            </Text>
+                                        </View>
+                                        <View style={styles.durationBadge}>
+                                            <Text style={styles.duration}>{item.duration || 60} мин</Text>
+                                        </View>
+                                    </View>
+
+                                    {/* Информация о занятии */}
+                                    <View style={styles.cardBody}>
+                                        <Text style={styles.workoutName} numberOfLines={2}>
+                                            {item.name || 'Групповое занятие'}
+                                        </Text>
+
+                                        <View style={styles.infoRow}>
+                                            <Icon name="profile" size={16} color="#DB6A50" />
+                                            <Text style={styles.coach} numberOfLines={1}>
+                                                {item.coach_name || item.coach || 'Тренер'}
+                                            </Text>
+                                        </View>
+
+                                        <View style={styles.infoRow}>
+                                            <Icon name="height" size={14} color="#E1A6AD" />
+                                            <Text style={styles.room} numberOfLines={1}>
+                                                {item.room_name || item.room || 'Основной зал'}
+                                            </Text>
+                                        </View>
+
+                                        {/* Места */}
+                                        <View style={styles.placesContainer}>
+                                            <View style={styles.placesInfo}>
+                                                <Icon name="profile" size={16} color="#E1A6AD" />
+                                                <Text style={styles.placesText}>
+                                                    <Text style={styles.placesFree}>{item.free_places || 0}</Text>
+                                                    <Text style={styles.placesSeparator}> из </Text>
+                                                    <Text style={styles.placesTotal}>{item.max_places || 10}</Text>
+                                                    <Text style={styles.placesLabel}> мест свободно</Text>
+                                                </Text>
+                                            </View>
+                                        </View>
+                                    </View>
+
+                                    {/* Кнопка записи */}
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.bookButton,
+                                            (item.free_places === 0) && styles.bookButtonDisabled
+                                        ]}
+                                        disabled={item.free_places === 0}
+                                    >
+                                        <Icon
+                                            name="extend"
+                                            size={18}
+                                            color={item.free_places === 0 ? "#999" : "#FFF"}
+                                        />
+                                        <Text style={[
+                                            styles.bookButtonText,
+                                            (item.free_places === 0) && styles.bookButtonTextDisabled
+                                        ]}>
+                                            {item.free_places === 0 ? 'МЕСТ НЕТ' : 'ЗАПИСАТЬСЯ'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ))
+                        )}
+                    </ScrollView>
+
+                    <View style={styles.spacer} />
+                </ScrollView>
+
+                {/* ФИКСИРОВАННАЯ НАВИГАЦИЯ ВНИЗУ */}
+                <View style={styles.bottomNavigationContainer}>
+                    <View style={styles.navBackground}>
+                        {/* Профиль */}
+                        <TouchableOpacity
+                            style={styles.navButton}
+                            onPress={() => navigation.navigate('Profile')}
+                        >
+                            <Icon name="profile" size={24} color="#FFF" />
+                            <Text style={styles.navButtonText}>Профиль</Text>
+                        </TouchableOpacity>
+
+                        {/* Расписание (АКТИВНЫЙ) */}
+                        <TouchableOpacity style={styles.navButton}>
+                            <Icon name="calendar" size={26} color="#000" style={styles.activeIcon} />
+                            <Text style={[styles.navButtonText, styles.navButtonActive]}>Расписание</Text>
+                        </TouchableOpacity>
+
+                        {/* Показатели */}
+                        <TouchableOpacity
+                            style={styles.navButton}
+                            onPress={() => navigation.navigate('Progress')}
+                        >
+                            <Icon name="stats" size={24} color="#FFF" />
+                            <Text style={styles.navButtonText}>Показатели</Text>
+                        </TouchableOpacity>
+
+                        {/* Про Фитнес */}
+                        <TouchableOpacity
+                            style={styles.navButton}
+                            onPress={() => navigation.navigate('ProFitness')}
+                        >
+                            <Image
+                                source={proFitnessLogo}
+                                style={styles.proFitnessIcon}
+                                resizeMode="contain"
+                            />
+                            <Text style={styles.navButtonText}>Про Фитнес</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </View>
 
             {/* Модальное окно выбора филиала */}
             <Modal
@@ -379,7 +369,7 @@ export default function ScheduleScreen() {
                                 onPress={() => setShowBranchModal(false)}
                                 style={styles.closeButton}
                             >
-                                <Icon name="close" size={24} color="#FFF" />
+                                <Icon name="freeze" size={20} color="#FFF" />
                             </TouchableOpacity>
                         </View>
 
@@ -398,7 +388,7 @@ export default function ScheduleScreen() {
                                     }}
                                 >
                                     <View style={styles.branchIcon}>
-                                        <Icon name="map-marker" size={20} color="#FF6B00" />
+                                        <Icon name="profile" size={18} color="#DB6A50" />
                                     </View>
                                     <View style={styles.branchInfo}>
                                         <Text style={styles.branchItemName}>{item.name}</Text>
@@ -408,7 +398,7 @@ export default function ScheduleScreen() {
                                     </View>
                                     {selectedBranch?.id === item.id && (
                                         <View style={styles.checkIcon}>
-                                            <Icon name="check" size={20} color="#FF6B00" />
+                                            <Icon name="freeze" size={18} color="#DB6A50" />
                                         </View>
                                     )}
                                 </TouchableOpacity>
@@ -417,7 +407,7 @@ export default function ScheduleScreen() {
                     </View>
                 </View>
             </Modal>
-        </View>
+        </SafeAreaView>
     );
 }
 
@@ -425,6 +415,13 @@ const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
         backgroundColor: '#0A0A0A',
+    },
+    container: {
+        flex: 1,
+        backgroundColor: '#0A0A0A',
+    },
+    scrollView: {
+        flex: 1,
     },
     loadingContainer: {
         flex: 1,
@@ -438,18 +435,15 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     header: {
-        backgroundColor: '#111',
-        paddingTop: 50,
+        paddingHorizontal: 24,
+        paddingTop: 40,
         paddingBottom: 20,
-        paddingHorizontal: 20,
-        borderBottomLeftRadius: 25,
-        borderBottomRightRadius: 25,
     },
     headerRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 25,
     },
     title: {
         fontSize: 30,
@@ -457,32 +451,26 @@ const styles = StyleSheet.create({
         color: '#FFF',
         letterSpacing: -0.5,
     },
-    date: {
-        fontSize: 16,
-        color: '#FF6B00',
-        marginTop: 5,
-        fontWeight: '600',
-    },
     branchSelector: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255,107,0,0.15)',
+        backgroundColor: 'rgba(219, 106, 80, 0.15)',
         paddingHorizontal: 14,
         paddingVertical: 10,
         borderRadius: 12,
         borderWidth: 1.5,
-        borderColor: 'rgba(255,107,0,0.3)',
+        borderColor: 'rgba(219, 106, 80, 0.3)',
         maxWidth: 160,
     },
     branchName: {
-        color: '#FF6B00',
+        color: '#FFF',
         marginHorizontal: 8,
         fontSize: 14,
         fontWeight: '600',
         flexShrink: 1,
     },
     weekContainer: {
-        marginBottom: 20,
+        marginBottom: 10,
     },
     weekContent: {
         paddingHorizontal: 5,
@@ -496,12 +484,12 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.05)',
     },
     dateItemSelected: {
-        backgroundColor: '#FF6B00',
+        backgroundColor: '#DB6A50',
         transform: [{ scale: 1.05 }],
     },
     dateItemToday: {
         borderWidth: 2,
-        borderColor: '#FF6B00',
+        borderColor: '#DB6A50',
     },
     dateWeekday: {
         fontSize: 12,
@@ -511,7 +499,7 @@ const styles = StyleSheet.create({
         marginBottom: 6,
     },
     dateWeekdaySelected: {
-        color: '#000',
+        color: '#FFF',
     },
     dateDay: {
         fontSize: 22,
@@ -520,7 +508,7 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     dateDaySelected: {
-        color: '#000',
+        color: '#FFF',
     },
     dateMonth: {
         fontSize: 11,
@@ -529,50 +517,11 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     dateMonthSelected: {
-        color: '#333',
-        fontWeight: '700',
-    },
-    stats: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderRadius: 14,
-        padding: 16,
-        marginTop: 10,
-        alignItems: 'center',
-    },
-    stat: {
-        flex: 1,
-        alignItems: 'center',
-    },
-    statIconContainer: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    statValue: {
-        fontSize: 24,
-        fontWeight: '800',
         color: '#FFF',
-        marginBottom: 2,
-    },
-    statLabel: {
-        fontSize: 12,
-        color: '#999',
-        fontWeight: '600',
-    },
-    statDivider: {
-        width: 1,
-        height: 40,
-        backgroundColor: 'rgba(255,255,255,0.1)',
-        marginHorizontal: 10,
+        fontWeight: '700',
     },
     scheduleContainer: {
         flex: 1,
-        backgroundColor: '#0A0A0A',
     },
     emptyContainer: {
         flexGrow: 1,
@@ -581,8 +530,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 30,
     },
     scheduleContent: {
-        paddingVertical: 20,
-        paddingHorizontal: 16,
+        paddingVertical: 10,
+        paddingHorizontal: 24,
     },
     card: {
         backgroundColor: '#1A1A1A',
@@ -603,7 +552,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 20,
         paddingVertical: 16,
-        backgroundColor: 'rgba(255,107,0,0.12)',
+        backgroundColor: 'rgba(219, 106, 80, 0.12)',
         borderBottomWidth: 1,
         borderBottomColor: '#2A2A2A',
     },
@@ -614,7 +563,7 @@ const styles = StyleSheet.create({
     time: {
         fontSize: 28,
         fontWeight: '800',
-        color: '#FF6B00',
+        color: '#DB6A50',
         marginLeft: 12,
         letterSpacing: 0.5,
     },
@@ -647,14 +596,14 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     coach: {
-        color: '#FF6B00',
+        color: '#DB6A50',
         marginLeft: 10,
         fontSize: 15,
         fontWeight: '600',
         flex: 1,
     },
     room: {
-        color: '#888',
+        color: '#E1A6AD',
         marginLeft: 10,
         fontSize: 14,
         flex: 1,
@@ -688,26 +637,15 @@ const styles = StyleSheet.create({
         fontSize: 15,
     },
     placesLabel: {
-        color: '#999',
+        color: '#E1A6AD',
         fontSize: 13,
         marginLeft: 4,
-    },
-    placesIndicator: {
-        height: 6,
-        backgroundColor: '#2A2A2A',
-        borderRadius: 3,
-        overflow: 'hidden',
-    },
-    placesFill: {
-        height: '100%',
-        backgroundColor: '#FF6B00',
-        borderRadius: 3,
     },
     bookButton: {
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#FF6B00',
+        backgroundColor: '#DB6A50',
         marginHorizontal: 20,
         marginBottom: 20,
         paddingVertical: 16,
@@ -746,19 +684,6 @@ const styles = StyleSheet.create({
         lineHeight: 24,
         marginBottom: 25,
     },
-    tryButton: {
-        paddingVertical: 14,
-        paddingHorizontal: 28,
-        backgroundColor: 'rgba(255,107,0,0.15)',
-        borderRadius: 12,
-        borderWidth: 1.5,
-        borderColor: 'rgba(255,107,0,0.3)',
-    },
-    tryButtonText: {
-        color: '#FF6B00',
-        fontWeight: '700',
-        fontSize: 14,
-    },
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.9)',
@@ -796,7 +721,7 @@ const styles = StyleSheet.create({
         borderBottomColor: '#2A2A2A',
     },
     branchItemSelected: {
-        backgroundColor: 'rgba(255,107,0,0.1)',
+        backgroundColor: 'rgba(219, 106, 80, 0.1)',
     },
     branchIcon: {
         width: 40,
@@ -820,5 +745,56 @@ const styles = StyleSheet.create({
     checkIcon: {
         width: 30,
         alignItems: 'center',
+    },
+    spacer: {
+        height: 100,
+    },
+    bottomNavigationContainer: {
+        position: 'absolute',
+        bottom: 20,
+        left: 16,
+        right: 16,
+        zIndex: 1000,
+    },
+    navBackground: {
+        flexDirection: 'row',
+        backgroundColor: '#DB6A50',
+        borderRadius: 35,
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        shadowColor: '#DB6A50',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 16,
+        elevation: 20,
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        minHeight: 72,
+    },
+    navButton: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 6,
+        gap: 6,
+    },
+    activeIcon: {
+        transform: [{ scale: 1.1 }],
+    },
+    proFitnessIcon: {
+        width: 24,
+        height: 24,
+        tintColor: '#FFF',
+    },
+    navButtonText: {
+        fontSize: 10,
+        color: '#FFF',
+        fontWeight: '600',
+        letterSpacing: 0.2,
+        textAlign: 'center',
+        marginTop: 2,
+    },
+    navButtonActive: {
+        fontWeight: '700',
+        transform: [{ scale: 1.05 }],
     },
 });

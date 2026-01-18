@@ -288,7 +288,7 @@ func parseCRMScheduleResponse(body []byte, requestDate string) ([]ScheduleItem, 
 				// CRM: 2=Monday -> Go: 1=Monday
 				// ...
 				// CRM: 7=Saturday -> Go: 6=Saturday
-				crmDayGo := crmDay - 1
+				crmDayGo := crmDay
 				if crmDayGo < 0 {
 					crmDayGo = 6 // Обработка если 0
 				}

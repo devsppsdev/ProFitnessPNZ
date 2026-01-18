@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // 🔴 ЗАМЕНИ ЭТОТ IP НА ТВОЙ ТЕКУЩИЙ IP
-const API_URL = 'http://192.168.0.102:8080'; // ← ЗАМЕНИ НА СВОЙ IP
+const API_URL = 'http://192.168.0.101:8080'; // ← ЗАМЕНИ НА СВОЙ IP
 
 const api = axios.create({
     baseURL: API_URL,
